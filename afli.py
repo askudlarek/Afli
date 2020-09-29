@@ -14,6 +14,52 @@ Game:
 import sys
 import pygame
 
+class Spike(pygame.sprite.Sprite):
+    """
+    A class to represent the static bottom and top spikes as sprites.
+
+    Attributes
+    ----------
+    image : pygame image
+        image of the sprite
+    rect : pygame rect
+        rect information (x, y) for sprite
+
+    Methods
+    -------
+    get_height():
+        Returns the height of the sprite image.
+    flip():
+        Flips the sprite image horizontally.
+    """
+    def __init__(self):
+        # Call the parent class (Sprite) constructor
+        super().__init__()
+
+        # Load image sprite
+        self.image = pygame.image.load('images/spikes.png').convert()
+
+        # Set transparency color
+        self.image.set_colorkey(Game.WHITE)
+
+        # Set rect of the image
+        self.rect = self.image.get_rect()
+
+    def get_height(self):
+        '''
+        Gets the height of the sprites image.
+
+                Returns:
+                        a (int): The height of the sprite's image
+        '''
+        return self.image.get_height()
+
+    def flip(self):
+        '''
+        Flips the sprite image horizontally.
+        '''
+        self.image = pygame.transform.flip(self.image, False, True)
+
 class Score:
     """
     A class to represent the current score of the game.
@@ -85,8 +131,12 @@ class Game:
         height of the screen
     font_size : int
         contains the size of the score font
+    all_sprites_list : pygame sprite group
+        contains all the sprites in the game
     WHITE : Tuple int
         contains the RGB color for white
+    BLACK : Tuple int
+        contains the RGB color for black
     BACKGROUND : Tuple int
         contains the RGB color for the background
 
@@ -96,18 +146,63 @@ class Game:
         Starts the game, contains the main game loop.
     draw():
         Draws the main components for the game.
+    create_spikes():
+        Creates the top and bottom spikes.
     """
+    # Colors
     WHITE = (255, 255, 255)
+    BLACK = (0, 0, 0)
     BACKGROUND = (200, 200, 200)
+
+    # Screen Information
     display_width = 1080
     display_height = 720
+
+    # Font style
     font_size = 36
 
+    # Sprite Groups
+    all_sprites_list = pygame.sprite.Group()
+
     def __init__(self):
+        # Init pygame
         pygame.init()
+
+        # Set window title
+        pygame.display.set_caption('Afli')
+
+        # Create window
         self.screen = pygame.display.set_mode([self.display_width, self.display_height])
+
+        # Set font
         self.font = pygame.font.SysFont("courier", self.font_size)
+
+        # Create game components
         self.score = Score(self.display_width, self.display_height, self.font)
+        self.create_spikes()
+
+    def create_spikes(self):
+        '''
+        Creates top and bottom spikes.
+        '''
+        # Create Spikes
+        bottom_spike = Spike()
+        top_spike = Spike()
+
+        # Position bottom spike
+        bottom_spike.rect.x = 0
+        bottom_spike.rect.y = self.display_height - bottom_spike.get_height()
+
+        # Position top spike
+        top_spike.rect.x = 0
+        top_spike.rect.y = 0
+
+        # Flip top spikes
+        top_spike.flip()
+
+        # Add spikes to the sprite group
+        self.all_sprites_list.add(top_spike)
+        self.all_sprites_list.add(bottom_spike)
 
     def play(self):
         '''
@@ -124,8 +219,16 @@ class Game:
         '''
         Draws the main components for the game.
         '''
+        # Fill the screen with background color
         self.screen.fill(Game.BACKGROUND)
+
+        # Draw the score
         self.score.draw(self.screen)
+
+        # Draw sprites
+        self.all_sprites_list.draw(self.screen)
+
+        # Update display
         pygame.display.update()
 
 if __name__ == "__main__":
