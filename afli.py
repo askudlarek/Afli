@@ -14,6 +14,66 @@ Game:
 import sys
 import pygame
 
+class Bird(pygame.sprite.Sprite):
+    """
+    A class to represent the bird/main player.
+
+    Attributes
+    ----------
+    image : pygame image
+        image of the bird sprite
+    rect : pygame rect
+        rect information (x, y) for sprite
+    bird_height : int
+        contains the image height of the bird for resizing
+    bird_width : int
+        contains the image width of the bird for resizing
+
+    Methods
+    -------
+    get_height():
+        Returns the height of the sprite image.
+    get_width():
+        Returns the width of the sprite image.
+    """
+    # Bird Image Size
+    bird_height = 65
+    bird_width = 100
+
+    def __init__(self):
+        # Call the parent class (Sprite) constructor
+        super().__init__()
+
+        # Load image sprite
+        self.image = pygame.image.load('images/bird.png').convert()
+
+        # Resize the image
+        self.image = pygame.transform.scale(self.image, (self.bird_width, self.bird_height))
+
+        # Set transparency color
+        self.image.set_colorkey(Game.BLACK)
+
+        # Set rect of the image
+        self.rect = self.image.get_rect()
+
+    def get_height(self):
+        '''
+        Gets the height of the sprites image.
+
+                Returns:
+                        a (int): The height of the sprite's image
+        '''
+        return self.image.get_height()
+
+    def get_width(self):
+        '''
+        Gets the width of the sprites image.
+
+                Returns:
+                        a (int): The width of the sprite's image
+        '''
+        return self.image.get_width()
+
 class Spike(pygame.sprite.Sprite):
     """
     A class to represent the static bottom and top spikes as sprites.
@@ -133,6 +193,8 @@ class Game:
         contains the size of the score font
     all_sprites_list : pygame sprite group
         contains all the sprites in the game
+    bird : Bird
+        the main player of the game
     WHITE : Tuple int
         contains the RGB color for white
     BLACK : Tuple int
@@ -148,6 +210,8 @@ class Game:
         Draws the main components for the game.
     create_spikes():
         Creates the top and bottom spikes.
+    add_bird():
+        Adds the bird to the spite group and to the center of the screen.
     """
     # Colors
     WHITE = (255, 255, 255)
@@ -180,6 +244,21 @@ class Game:
         # Create game components
         self.score = Score(self.display_width, self.display_height, self.font)
         self.create_spikes()
+        self.add_bird()
+
+    def add_bird(self):
+        '''
+        Creates the bird/main player as an attribute of the Game class.
+        '''
+        # Create the bird
+        self.bird = Bird()
+
+        # Position bird in the center of the screen
+        self.bird.rect.x = (self.display_width - self.bird.get_width()) / 2
+        self.bird.rect.y = (self.display_height / 2) - self.bird.get_height()
+
+        # Add the player to the sprite group
+        self.all_sprites_list.add(self.bird)
 
     def create_spikes(self):
         '''
