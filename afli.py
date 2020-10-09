@@ -28,6 +28,14 @@ class Bird(pygame.sprite.Sprite):
         contains the image height of the bird for resizing
     bird_width : int
         contains the image width of the bird for resizing
+    x_speed : int
+        the horizontal speed of the bird
+    velocity : int
+        the velocity of the bird to calculate force
+    mass : int
+        the mass of the bird to calculate force
+    isjump : int
+        is the bird currently jumping; 1 = True, 0 = False
 
     Methods
     -------
@@ -35,10 +43,19 @@ class Bird(pygame.sprite.Sprite):
         Returns the height of the sprite image.
     get_width():
         Returns the width of the sprite image.
+    jump():
+        Sets isjump to True and moves sprite for jump
+    update():
+        Updates the birds position.
     """
     # Bird Image Size
     bird_height = 65
     bird_width = 100
+
+    # Bird mechanics
+    x_speed = 10
+    velocity = 8
+    mass = 2
 
     def __init__(self):
         # Call the parent class (Sprite) constructor
@@ -55,6 +72,9 @@ class Bird(pygame.sprite.Sprite):
 
         # Set rect of the image
         self.rect = self.image.get_rect()
+
+        # Bird is not currently jumping
+        self.isjump = 0
 
     def get_height(self):
         '''
@@ -73,6 +93,29 @@ class Bird(pygame.sprite.Sprite):
                         a (int): The width of the sprite's image
         '''
         return self.image.get_width()
+
+    def jump(self):
+        '''
+        Sets the bird to be currently jumping for the update function.
+        '''
+        self.isjump = 1
+
+    def update(self):
+        '''
+        Updates the position of the bird.
+        '''
+        # Update horizontal movement
+        self.rect.x += self.x_speed
+
+        # Update gravity and falling based on force
+        force = self.mass * self.velocity
+        self.rect.y = self.rect.y - force
+        self.velocity -= 1
+
+        # Reset upon jumping
+        if self.isjump:
+            self.velocity = 8
+            self.isjump = 0
 
 class Spike(pygame.sprite.Sprite):
     """
@@ -195,12 +238,16 @@ class Game:
         contains all the sprites in the game
     bird : Bird
         the main player of the game
+    clock : Pygame
+        to help limit framerate and keep game time consistent
     WHITE : Tuple int
         contains the RGB color for white
     BLACK : Tuple int
         contains the RGB color for black
     BACKGROUND : Tuple int
         contains the RGB color for the background
+    FPS : int
+        sets the framerate for pygame to limit framerate
 
     Methods
     -------
@@ -208,6 +255,8 @@ class Game:
         Starts the game, contains the main game loop.
     draw():
         Draws the main components for the game.
+    update():
+        Updates the main game components including position and collision detection.
     create_spikes():
         Creates the top and bottom spikes.
     add_bird():
@@ -221,6 +270,7 @@ class Game:
     # Screen Information
     display_width = 1080
     display_height = 720
+    FPS = 60
 
     # Font style
     font_size = 36
@@ -235,8 +285,9 @@ class Game:
         # Set window title
         pygame.display.set_caption('Afli')
 
-        # Create window
+        # Create window and clock
         self.screen = pygame.display.set_mode([self.display_width, self.display_height])
+        self.clock = pygame.time.Clock()
 
         # Set font
         self.font = pygame.font.SysFont("courier", self.font_size)
@@ -288,11 +339,22 @@ class Game:
         Starts the game, contains the main game loop.
         '''
         while True:
+            keys = pygame.key.get_pressed()
+            self.clock.tick(self.FPS)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+            if keys[pygame.K_UP]:
+                self.bird.jump()
+            self.update()
             self.draw()
+
+    def update(self):
+        '''
+        Updates the main components in the game.
+        '''
+        self.all_sprites_list.update()
 
     def draw(self):
         '''
