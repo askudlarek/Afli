@@ -12,6 +12,7 @@ Game:
 
 """
 import sys
+import os
 import pygame
 
 class Bird(pygame.sprite.Sprite):
@@ -36,6 +37,8 @@ class Bird(pygame.sprite.Sprite):
         the mass of the bird to calculate force
     isjump : int
         is the bird currently jumping; 1 = True, 0 = False
+    alive : bool
+        determines whether or not the bird is alive still
 
     Methods
     -------
@@ -43,8 +46,16 @@ class Bird(pygame.sprite.Sprite):
         Returns the height of the sprite image.
     get_width():
         Returns the width of the sprite image.
+    collid(pygame:sprite_group)
+        Returns whether or not bird has collided with sprite in sprite_group.
+    flip():
+        Flips the birds direction.
     jump():
-        Sets isjump to True and moves sprite for jump
+        Sets isjump to True and moves sprite for jump.
+    died():
+        Sets the bird to be dead.
+    reset():
+        Resets the bird to restart game.
     update():
         Updates the birds position.
     """
@@ -76,6 +87,9 @@ class Bird(pygame.sprite.Sprite):
         # Bird is not currently jumping
         self.isjump = 0
 
+        # Set the bird to be alive
+        self.alive = True
+
     def get_height(self):
         '''
         Gets the height of the sprites image.
@@ -94,28 +108,69 @@ class Bird(pygame.sprite.Sprite):
         '''
         return self.image.get_width()
 
+    def flip(self):
+        '''
+        Flips the birds direction.
+        '''
+        self.image = pygame.transform.flip(self.image, True, False)
+        if self.x_speed > 0:
+            self.x_speed = -10
+        else:
+            self.x_speed = 10
+
+    def collide(self, sprite_group):
+        '''
+        Checks if the bird has collided with another sprite in sprite group.
+
+                Returns:
+                        a (bool): Whether or not the bird collided
+        '''
+        return pygame.sprite.spritecollide(self, sprite_group, False)
+
     def jump(self):
         '''
         Sets the bird to be currently jumping for the update function.
         '''
         self.isjump = 1
 
+    def died(self):
+        '''
+        Sets the bird to be dead.
+        '''
+        self.alive = False
+
+    def reset(self, display_width, display_height):
+        '''
+        Resets the birds state to restart the game.
+        '''
+        # Set bird to be alive
+        self.alive = True
+
+        # Position bird in the center of the screen
+        self.rect.x = (display_width - self.get_width()) / 2
+        self.rect.y = (display_height / 2) - self.get_height()
+
+        # Reset the velocity and jump
+        self.isjump = 0
+        self.velocity = 8
+
     def update(self):
         '''
         Updates the position of the bird.
         '''
-        # Update horizontal movement
-        self.rect.x += self.x_speed
+        if self.alive:
+            # Update horizontal movement
+            self.rect.x += self.x_speed
 
-        # Update gravity and falling based on force
-        force = self.mass * self.velocity
-        self.rect.y = self.rect.y - force
-        self.velocity -= 1
+            # Update gravity and falling based on force
+            force = self.mass * self.velocity
+            self.rect.y = self.rect.y - force
+            self.velocity -= 1
 
-        # Reset upon jumping
-        if self.isjump:
-            self.velocity = 8
-            self.isjump = 0
+            # Reset upon jumping
+            if self.isjump:
+                self.velocity = 8
+                self.isjump = 0
 
 class Spike(pygame.sprite.Sprite):
     """
@@ -162,6 +217,44 @@ class Spike(pygame.sprite.Sprite):
         Flips the sprite image horizontally.
         '''
         self.image = pygame.transform.flip(self.image, False, True)
+
+class Wall(pygame.sprite.Sprite):
+    """
+    A class to represent the walls confining the player as sprites.
+
+    Attributes
+    ----------
+    image : pygame image
+        image of the sprite
+    rect : pygame rect
+        rect information (x, y) for sprite
+
+    Methods
+    -------
+    get_width():
+        Returns the width of the sprite image.
+    """
+    def __init__(self):
+        # Call the parent class (Sprite) constructor
+        super().__init__()
+
+        # Load image sprite
+        self.image = pygame.image.load('images/wall.png').convert()
+
+        # Set transparency color
+        self.image.set_colorkey(Game.WHITE)
+
+        # Set rect of the image
+        self.rect = self.image.get_rect()
+
+    def get_width(self):
+        '''
+        Gets the width of the sprites image.
+
+                Returns:
+                        a (int): The width of the sprite's image
+        '''
+        return self.image.get_width()
 
 class Score:
     """
@@ -240,6 +333,14 @@ class Game:
         the main player of the game
     clock : Pygame
         to help limit framerate and keep game time consistent
+    left_side_wall : Wall
+        the left side wall for the bird to bounce off of
+    right_side_wall : Wall
+        the right side wall for the bird to bounce off of
+    walls : Pygame sprite group
+        a list of wall sprites for collision detection
+    spikes : Pygame sprite group
+        a list of spike sprites for collision detection
     WHITE : Tuple int
         contains the RGB color for white
     BLACK : Tuple int
@@ -257,11 +358,16 @@ class Game:
         Draws the main components for the game.
     update():
         Updates the main game components including position and collision detection.
+    create_walls():
+        Creates the side walls.
     create_spikes():
         Creates the top and bottom spikes.
     add_bird():
         Adds the bird to the spite group and to the center of the screen.
     """
+    # Start the window in the center of the screen
+    os.environ['SDL_VIDEO_CENTERED'] = '1'
+
     # Colors
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
@@ -269,7 +375,7 @@ class Game:
 
     # Screen Information
     display_width = 1080
-    display_height = 720
+    display_height = 900
     FPS = 60
 
     # Font style
@@ -277,6 +383,8 @@ class Game:
 
     # Sprite Groups
     all_sprites_list = pygame.sprite.Group()
+    walls = pygame.sprite.Group()
+    spikes = pygame.sprite.Group()
 
     def __init__(self):
         # Init pygame
@@ -295,6 +403,7 @@ class Game:
         # Create game components
         self.score = Score(self.display_width, self.display_height, self.font)
         self.create_spikes()
+        self.create_walls()
         self.add_bird()
 
     def add_bird(self):
@@ -310,6 +419,30 @@ class Game:
 
         # Add the player to the sprite group
         self.all_sprites_list.add(self.bird)
+
+    def create_walls(self):
+        '''
+        Creates the two side walls.
+        '''
+        # Create the walls
+        self.left_side_wall = Wall()
+        self.right_side_wall = Wall()
+
+        # Position right wall
+        self.left_side_wall.rect.x = self.display_width - self.left_side_wall.get_width()
+        self.left_side_wall.rect.y = 0
+
+        # Position left wall
+        self.right_side_wall.rect.x = 0
+        self.right_side_wall.rect.y = 0
+
+        # Add walls to the all sprites group
+        self.all_sprites_list.add(self.right_side_wall)
+        self.all_sprites_list.add(self.left_side_wall)
+
+        # Add walls to the walls sprite group
+        self.walls.add(self.right_side_wall)
+        self.walls.add(self.left_side_wall)
 
     def create_spikes(self):
         '''
@@ -330,9 +463,13 @@ class Game:
         # Flip top spikes
         top_spike.flip()
 
-        # Add spikes to the sprite group
+        # Add spikes to the all sprite group
         self.all_sprites_list.add(top_spike)
         self.all_sprites_list.add(bottom_spike)
+
+        # Add to the spikes group
+        self.spikes.add(top_spike)
+        self.spikes.add(bottom_spike)
 
     def play(self):
         '''
@@ -347,8 +484,22 @@ class Game:
                     sys.exit()
             if keys[pygame.K_UP]:
                 self.bird.jump()
+            if keys[pygame.K_SPACE]:
+                self.bird.reset(self.display_width, self. display_height)
+                self.score.reset()
+            self.collision_detection()
             self.update()
             self.draw()
+
+    def collision_detection(self):
+        '''
+        Checks whether the bird has collided with any other sprite and acts accordingly
+        '''
+        if self.bird.collide(self.walls):
+            self.bird.flip()
+            self.score.increment()
+        elif self.bird.collide(self.spikes):
+            self.bird.alive = False
 
     def update(self):
         '''
