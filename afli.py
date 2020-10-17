@@ -44,12 +44,14 @@ class Bird(pygame.sprite.Sprite):
         the horizontal speed of the bird
     velocity : int
         the velocity of the bird to calculate force
-    mass : int
-        the mass of the bird to calculate force
     isjump : int
         is the bird currently jumping; 1 = True, 0 = False
     alive : bool
         determines whether or not the bird is alive still
+    MASS : int
+        the mass of the bird to calculate force
+    VEL : int
+        the default velocity of the bird
 
     Methods
     -------
@@ -77,7 +79,10 @@ class Bird(pygame.sprite.Sprite):
     # Bird mechanics
     x_speed = 10
     velocity = 8
-    mass = 2
+
+    # Static bird mechanics
+    VEL = 8
+    MASS = 2
 
     def __init__(self):
         # Call the parent class (Sprite) constructor
@@ -173,7 +178,7 @@ class Bird(pygame.sprite.Sprite):
 
         # Reset the velocity and jump
         self.isjump = 0
-        self.velocity = 8
+        self.velocity = self.VEL
 
     def update(self):
         '''
@@ -184,13 +189,13 @@ class Bird(pygame.sprite.Sprite):
             self.rect.x += self.x_speed
 
             # Update gravity and falling based on force
-            force = self.mass * self.velocity
+            force = self.MASS * self.velocity
             self.rect.y = self.rect.y - force
             self.velocity -= 1
 
             # Reset upon jumping
             if self.isjump:
-                self.velocity = 8
+                self.velocity = self.VEL
                 self.isjump = 0
 
 class Spike(pygame.sprite.Sprite):
@@ -644,7 +649,7 @@ class Game:
 
         # Set the constraints for the random y coordinate
         a_range_constraint = self.top_spike.get_height() * 2
-        b_range_constraint = (self.display_height - gap_min) - a_range_constraint
+        b_range_constraint = (self.display_height - gap) - a_range_constraint
 
         # Randomize the y coordinate given the constraints
         random_y = random.randint(a_range_constraint, b_range_constraint)
