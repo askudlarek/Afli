@@ -32,7 +32,10 @@ def sigmoid(x_var):
             Returns:
                     a (float): Resulting calculation of the sigmoid function
     '''
-    return 1 / (1 + math.exp(-x_var))
+    if x_var < 0:
+        return 1 - 1/(1 + math.exp(x_var))
+    else:
+        return 1 / (1 + math.exp(-x_var))
 
 def mutate_rate(x_var):
     '''

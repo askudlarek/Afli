@@ -25,6 +25,7 @@ import sys
 import os
 import random
 import pygame
+from neuralnetwork import NeuralNetwork
 
 class Bird(pygame.sprite.Sprite):
     """
@@ -84,7 +85,7 @@ class Bird(pygame.sprite.Sprite):
     VEL = 8
     MASS = 2
 
-    def __init__(self):
+    def __init__(self, brain=NeuralNetwork(5, 8, 2)):
         # Call the parent class (Sprite) constructor
         super().__init__()
 
@@ -100,11 +101,25 @@ class Bird(pygame.sprite.Sprite):
         # Set rect of the image
         self.rect = self.image.get_rect()
 
+        # Position bird in the center of the screen
+        self.rect.x = int((Game.display_width - self.get_width()) / 2)
+        self.rect.y = int((Game.display_height / 2) - self.get_height())
+
         # Bird is not currently jumping
         self.isjump = 0
 
         # Set the bird to be alive
         self.alive = True
+
+        # Set the bird brain
+        self.brain = brain
+
+        # Set the birds own score and fitness
+        self.score = 0
+        self.fitness = 0
+    
+    def remove_from_groups(self):
+        self.kill()
 
     def get_height(self):
         '''
@@ -144,6 +159,11 @@ class Bird(pygame.sprite.Sprite):
                         a (bool): Whether or not the bird collided
         '''
         return pygame.sprite.spritecollide(self, sprite_group, False)
+    
+    def think(self, inputs):
+        action = self.brain.predict(inputs)
+        if action[0] > action[1]:
+            self.jump()
 
     def jump(self):
         '''
@@ -180,6 +200,15 @@ class Bird(pygame.sprite.Sprite):
         self.isjump = 0
         self.velocity = self.VEL
 
+        # Reset score and fitness
+        self.score = 0
+    
+    def get_x_pos(self):
+        if self.x_speed > 0:
+            return self.rect.x + self.get_width()
+        else:
+            return self.rect.x
+
     def update(self):
         '''
         Updates the position of the bird.
@@ -187,6 +216,9 @@ class Bird(pygame.sprite.Sprite):
         if self.alive:
             # Update horizontal movement
             self.rect.x += self.x_speed
+
+            # Increase the score
+            self.score += 1
 
             # Update gravity and falling based on force
             force = self.MASS * self.velocity
@@ -425,6 +457,57 @@ class Score:
         text = self.font.render(str(self.score), True, Game.WHITE)
         screen.blit(text, (self.x_pos, self.y_pos))
 
+class Generation:
+    """
+    A class to represent the current score of the game.
+
+    Attributes
+    ----------
+    score : int
+        current score of the game
+    font : pygame
+        font of the text to display
+    x_pos : int
+        x position of the score display
+    y_pos : int
+        y position of the score display
+
+    Methods
+    -------
+    increment():
+        Increments the score by 1.
+    reset():
+        Resets the score back to 0.
+    draw(pygame:screen):
+        Draws the text for the score to the given screen.
+    """
+    generation = 0
+
+    def __init__(self, font):
+        self.font = font
+
+    def increment(self):
+        '''
+        Increments the score by 1.
+        '''
+        self.generation += 1
+
+    def reset(self):
+        '''
+        Resets the score back to 0.
+        '''
+        self.generation = 0
+
+    def draw(self, screen):
+        '''
+        Draws the score onto the given screen.
+
+                Parameters:
+                        screen (pygame:surface): A screen to have the score drawn to
+        '''
+        text = self.font.render("Generation: " + str(self.generation), True, Game.BLACK)
+        screen.blit(text, (Game.display_width / 15, Game.display_height / 15))
+
 class Game:
     """
     A class to represent the game Don't Touch The Spikes and allow an AI to play that game.
@@ -499,6 +582,9 @@ class Game:
     BLACK = (0, 0, 0)
     BACKGROUND = (200, 200, 200)
 
+    # Population Size
+    POPULATION_SIZE = 20
+
     # Screen Information
     display_width = 1080
     display_height = 900
@@ -519,6 +605,9 @@ class Game:
         # Set window title
         pygame.display.set_caption('Afli')
 
+        # Create population
+        self.population = []
+
         # Create window and clock
         self.screen = pygame.display.set_mode([self.display_width, self.display_height])
         self.clock = pygame.time.Clock()
@@ -526,25 +615,27 @@ class Game:
         # Set font
         self.font = pygame.font.SysFont("courier", self.font_size)
 
+        # Populate the population
+        self.add_bird()
+
         # Create game components
         self.score = Score(self.display_width, self.display_height, self.font)
         self.create_spikes()
         self.create_walls()
-        self.add_bird()
+        self.generation = Generation(self.font)
 
     def add_bird(self):
         '''
         Creates the bird/main player as an attribute of the Game class.
         '''
-        # Create the bird
-        self.bird = Bird()
+        while len(self.population) < Game.POPULATION_SIZE:
+            # Create the bird
+            bird = Bird()
 
-        # Position bird in the center of the screen
-        self.bird.rect.x = (self.display_width - self.bird.get_width()) / 2
-        self.bird.rect.y = (self.display_height / 2) - self.bird.get_height()
+            self.population.append(bird)
 
-        # Add the player to the sprite group
-        self.all_sprites_list.add(self.bird)
+            # Add the bird to the sprite group
+            self.all_sprites_list.add(bird)
 
     def create_walls(self):
         '''
@@ -555,12 +646,12 @@ class Game:
         self.right_side_wall = Wall()
 
         # Position right wall
-        self.left_side_wall.rect.x = self.display_width - self.left_side_wall.get_width()
-        self.left_side_wall.rect.y = 0
+        self.right_side_wall.rect.x = self.display_width - self.right_side_wall.get_width()
+        self.right_side_wall.rect.y = 0
 
         # Position left wall
-        self.right_side_wall.rect.x = 0
-        self.right_side_wall.rect.y = 0
+        self.left_side_wall.rect.x = 0
+        self.left_side_wall.rect.y = 0
 
         # Add walls to the all sprites group
         self.all_sprites_list.add(self.right_side_wall)
@@ -579,8 +670,17 @@ class Game:
         self.top_spike = Spike()
 
         # Create side spikes
-        self.top_wall_spike = WallSpike()
-        self.bottom_wall_spike = WallSpike()
+        self.top_left_wall_spike = WallSpike()
+        self.bottom_left_wall_spike = WallSpike()
+        self.top_right_wall_spike = WallSpike()
+        self.bottom_right_wall_spike = WallSpike()
+
+        self.top_left_wall_spike.set_spike(0, 0)
+        self.bottom_left_wall_spike.set_spike(0, 0)
+        self.top_right_wall_spike.flip()
+        self.bottom_right_wall_spike.flip()
+
+        self.spike_change()
 
         # Position bottom spike
         self.bottom_spike.rect.x = 0
@@ -596,31 +696,32 @@ class Game:
         # Add spikes to the all sprite group
         self.all_sprites_list.add(self.top_spike)
         self.all_sprites_list.add(self.bottom_spike)
-        self.all_sprites_list.add(self.top_wall_spike)
-        self.all_sprites_list.add(self.bottom_wall_spike)
+        self.all_sprites_list.add(self.top_left_wall_spike)
+        self.all_sprites_list.add(self.top_right_wall_spike)
+        self.all_sprites_list.add(self.bottom_left_wall_spike)
+        self.all_sprites_list.add(self.bottom_right_wall_spike)
 
         # Add to the spikes group
         self.spikes.add(self.top_spike)
         self.spikes.add(self.bottom_spike)
-        self.spikes.add(self.top_wall_spike)
-        self.spikes.add(self.bottom_wall_spike)
+        self.spikes.add(self.top_left_wall_spike)
+        self.spikes.add(self.top_right_wall_spike)
+        self.spikes.add(self.bottom_left_wall_spike)
+        self.spikes.add(self.bottom_right_wall_spike)
 
     def play(self):
         '''
         Starts the game, contains the main game loop.
         '''
         while True:
-            keys = pygame.key.get_pressed()
             self.clock.tick(self.FPS)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-            if keys[pygame.K_UP]:
-                self.bird.jump()
-            if keys[pygame.K_SPACE]:
-                self.reset()
             self.collision_detection()
+            if self.all_birds_dead():
+                self.next_generation()
             self.update()
             self.draw()
 
@@ -628,9 +729,8 @@ class Game:
         '''
         Resets the entire game back to default state to restart game.
         '''
-        self.bottom_wall_spike.reset()
-        self.top_wall_spike.reset()
-        self.bird.reset(self.display_width, self.display_height)
+        for bird in self.population:
+            bird.reset(self.display_width, self.display_height)
         self.score.reset()
 
     def spike_change(self):
@@ -638,7 +738,7 @@ class Game:
         Randomize wall spikes and the opening for the player to go through.
         '''
         # Set the minimum size of the gap to be twice the size of the bird
-        gap_min = self.bird.get_height() * 2
+        gap_min = self.population[0].get_height() * 2.5
 
         # Set the gap to decrease when score increases
         gap = (self.display_height / 2) - (self.score.score * 10)
@@ -655,40 +755,135 @@ class Game:
         random_y = random.randint(a_range_constraint, b_range_constraint)
 
         # Get the new y coordinates for both the top and bottom wall spikes
-        top_y = (0 - self.top_wall_spike.get_height()) + random_y
+        top_y = (0 - self.top_left_wall_spike.get_height()) + random_y
         bottom_y = random_y + gap
 
         # Get the x coordinate for spikes on right side
-        x_pos = self.display_width - self.top_wall_spike.get_width()
+        x_pos = self.display_width - self.top_left_wall_spike.get_width()
 
-        # Determine which side of the spikes need to be on
-        if self.bird.x_speed < 0:
-            self.top_wall_spike.set_spike(x_pos, top_y)
-            self.bottom_wall_spike.set_spike(x_pos, bottom_y)
+        if not self.all_birds_dead():
+            if self.first_alive_bird().x_speed > 0:
+                self.top_right_wall_spike.set_spike(x_pos, top_y)
+                self.bottom_right_wall_spike.set_spike(x_pos, bottom_y)
+            else:
+                self.top_left_wall_spike.set_spike(0, top_y)
+                self.bottom_left_wall_spike.set_spike(0, bottom_y)
+
+    def all_birds_dead(self):
+        for bird in self.population:
+            if bird.alive:
+                return False
+        return True
+
+    def next_generation(self):
+        self.normalize_fitness()
+        self.reset()
+        self.generate_new_population()
+        self.generation.increment()
+
+    def generate_new_population(self):
+        new_pop = []
+        for bird in self.population:
+            new_bird = self.pool_selection()
+            new_pop.append(new_bird)
+        for bird in self.population:
+            bird.remove_from_groups()
+        for bird in new_pop:
+            self.all_sprites_list.add(bird)
+        self.population = new_pop
+
+    def pool_selection(self):
+        random_num = random.random()
+        index = 0
+        while random_num > 0:
+            random_num -= self.population[index].fitness
+            index += 1
+        index -= 1
+
+        new_brain = self.population[index].brain.copy()
+        new_brain.mutate()
+        return Bird(new_brain)
+
+    def normalize_fitness(self):
+        for bird in self.population:
+            bird.score = pow(bird.score, 2)
+        total_sum = 0
+        for bird in self.population:
+            total_sum += bird.score
+        for bird in self.population:
+            bird.fitness = bird.score / total_sum
+    
+    def first_alive_bird(self):
+        for bird in self.population:
+            if bird.alive:
+                return bird
+        return self.population[0]
+
+    def calculate_action(self):
+        for bird in self.population:
+            inputs = []
+            inputs.append(self.distance_to_wall(bird))
+            inputs.append(self.distance_to_top_spike(bird))
+            inputs.append(self.distance_to_bottom_spike(bird))
+            inputs.append(self.distance_to_top_wall_spike(bird))
+            inputs.append(self.distance_to_bottom_wall_spike(bird))
+            bird.think(inputs)
+
+    def distance_to_wall(self, bird):
+        if bird.x_speed > 0:
+            return self.right_side_wall.rect.x - bird.get_x_pos()
         else:
-            self.top_wall_spike.set_spike(0, top_y)
-            self.bottom_wall_spike.set_spike(0, bottom_y)
+            distance = self.left_side_wall.rect.x + self.left_side_wall.get_width()
+            return bird.get_x_pos() - distance
+    
+    def distance_to_top_spike(self, bird):
+        return bird.rect.y - self.top_spike.get_height()
 
-        # Flip the image of the spikes if this isn't the first bounce
-        if self.score.score > 0:
-            self.top_wall_spike.flip()
-            self.bottom_wall_spike.flip()
+    def distance_to_bottom_spike(self, bird):
+        bird_y = bird.rect.y + bird.get_height()
+        return self.bottom_spike.rect.y - bird_y
+    
+    def distance_to_top_wall_spike(self, bird):
+        if bird.x_speed > 0:
+            y_of_spike = self.top_right_wall_spike.rect.y + self.top_right_wall_spike.get_height()
+            return bird.rect.y - y_of_spike
+        else:
+            y_of_spike = self.top_left_wall_spike.rect.y + self.top_left_wall_spike.get_height()
+            return bird.rect.y - y_of_spike
+    
+    def distance_to_bottom_wall_spike(self, bird):
+        if bird.x_speed > 0:
+            bird_y = bird.rect.y + bird.get_height()
+            return self.bottom_right_wall_spike.rect.y - bird_y
+        else:
+            bird_y = bird.rect.y + bird.get_height()
+            return self.bottom_left_wall_spike.rect.y - bird_y
+    
+    def birds_going_same_direction(self):
+        speed = self.first_alive_bird().x_speed
+        for bird in self.population:
+            if bird.alive and bird.x_speed != speed:
+                return False
+        return True
 
     def collision_detection(self):
         '''
         Checks whether the bird has collided with any other sprite and acts accordingly
         '''
-        if self.bird.collide(self.walls):
-            self.spike_change()
-            self.score.increment()
-            self.bird.flip()
-        elif self.bird.collide(self.spikes):
-            self.bird.alive = False
+        for bird in self.population:
+            if bird.collide(self.walls):
+                bird.flip()
+                if self.birds_going_same_direction():
+                    self.spike_change()
+                    self.score.increment()
+            elif bird.collide(self.spikes):
+                bird.alive = False
 
     def update(self):
         '''
         Updates the main components in the game.
         '''
+        self.calculate_action()
         self.all_sprites_list.update()
 
     def draw(self):
@@ -700,6 +895,9 @@ class Game:
 
         # Draw the score
         self.score.draw(self.screen)
+
+        # Draw generation
+        self.generation.draw(self.screen)
 
         # Draw sprites
         self.all_sprites_list.draw(self.screen)
