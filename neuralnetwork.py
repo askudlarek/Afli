@@ -45,7 +45,7 @@ def mutate_rate(x_var):
         Returns:
                 x (float): Either tweaked value of x_var or the same x_var
     '''
-    if random.random() < 0.1:
+    if random.random() < 0.05:
         offset = random.gauss(0, 1) * 0.5
         new_x = x_var + offset
         return new_x
