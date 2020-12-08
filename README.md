@@ -102,10 +102,8 @@ Distributed under the GNU General Public License v3.0. See `LICENSE` for more in
 * [Git Flow](https://github.com/nvie/gitflow)
 * [Img Shields](https://shields.io)
 * [Choose an Open Source License](https://choosealicense.com)
-* [Unittest](https://docs.python.org/3/library/unittest.html)
 * [Pygame](https://www.pygame.org/news)
 * [Pylint](https://www.pylint.org/)
-* [TravisCI](https://travis-ci.org/)
 
 
 

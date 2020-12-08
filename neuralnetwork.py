@@ -34,8 +34,7 @@ def sigmoid(x_var):
     '''
     if x_var < 0:
         return 1 - 1/(1 + math.exp(x_var))
-    else:
-        return 1 / (1 + math.exp(-x_var))
+    return 1 / (1 + math.exp(-x_var))
 
 def mutate_rate(x_var):
     '''
@@ -50,8 +49,7 @@ def mutate_rate(x_var):
         offset = random.gauss(0, 1) * 0.5
         new_x = x_var + offset
         return new_x
-    else:
-        return x_var
+    return x_var
 
 class NeuralNetwork:
     """
@@ -82,6 +80,10 @@ class NeuralNetwork:
         Returns a Neural Network identical to this one.
     mutate()
         Tweaks the values of all the Neural Network data.
+    save():
+        Save the brain to the located files in numpy form.
+    load():
+        Load the brain from the files in numpy form.
     """
     def __init__(self, input_nodes, hidden_nodes, output_nodes):
         # Create node counts
@@ -96,6 +98,24 @@ class NeuralNetwork:
         # Create biases
         self.hidden_bias = np.random.rand(self.hidden_nodes, 1)
         self.output_bias = np.random.rand(self.output_nodes, 1)
+
+    def save(self):
+        '''
+        Save the brain to the located files in numpy form.
+        '''
+        np.savetxt("Best Brain/ih_weights.txt", self.input_hidden_weights)
+        np.savetxt("Best Brain/ho_weights.txt", self.hidden_output_weights)
+        np.savetxt("Best Brain/output_bias.txt", self.output_bias)
+        np.savetxt("Best Brain/hidden_bias.txt", self.hidden_bias)
+
+    def load(self):
+        '''
+        Load the brain from the files in numpy form.
+        '''
+        self.input_hidden_weights = np.loadtxt("Best Brain/ih_weights.txt")
+        self.hidden_output_weights = np.loadtxt("Best Brain/ho_weights.txt")
+        self.output_bias = np.loadtxt("Best Brain/output_bias.txt")
+        self.hidden_bias = np.loadtxt("Best Brain/hidden_bias.txt")
 
     def predict(self, input_values):
         '''

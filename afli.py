@@ -82,6 +82,10 @@ class Bird(pygame.sprite.Sprite):
         Returns the birds current x position.
     update():
         Updates the birds position.
+    print_brain():
+        Prints the brain to the allocated files.
+    load_brain():
+        Loads the brain from the allocated files.
     """
     # Bird Image Size
     bird_height = 65
@@ -127,7 +131,19 @@ class Bird(pygame.sprite.Sprite):
         # Set the birds own score and fitness
         self.score = 0
         self.fitness = 0
-    
+
+    def print_brain(self):
+        '''
+        Saves the brain to the allocated files.
+        '''
+        self.brain.save()
+
+    def load_brain(self):
+        '''
+        Loads the brain from the allocated files.
+        '''
+        self.brain.load()
+
     def remove_from_groups(self):
         '''
         Removes this bird from all pygame groups it is in.
@@ -221,7 +237,7 @@ class Bird(pygame.sprite.Sprite):
 
         # Reset score and fitness
         self.score = 0
-    
+
     def get_x_pos(self):
         '''
         Returns the x position of this bird.
@@ -231,8 +247,7 @@ class Bird(pygame.sprite.Sprite):
         '''
         if self.x_speed > 0:
             return self.rect.x + self.get_width()
-        else:
-            return self.rect.x
+        return self.rect.x
 
     def update(self):
         '''
@@ -465,8 +480,10 @@ class Game:
         the bottom side of the wall spikes.
     population: list Bird
         list of birds in the population
-    generation: Generation
+    generation: int
         the number of generations
+    high_score: int
+        the high score for the session
     POPULATION_SIZE: int
         the total size of the population
     WHITE : Tuple int
@@ -524,6 +541,10 @@ class Game:
         Calculate the distance from the given bird to the bottom wall spike.
     birds_going_same_direction():
         Checks if all alive birds in the population are going the same direction.
+    update_high_score():
+        Updates the high score if it needs to be updated.
+    best_bird():
+        Returns the bird with the a high fitness score in the population.
     """
     # Start the window in the center of the screen
     os.environ['SDL_VIDEO_CENTERED'] = '1'
@@ -569,8 +590,12 @@ class Game:
         # Populate the population
         self.add_bird()
 
+        # Save and load components
+        self.save = False
+
         # Create game components
         self.score = 0
+        self.high_score = 0
         self.create_spikes()
         self.create_walls()
         self.generation = 0
@@ -670,6 +695,13 @@ class Game:
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_s:
+                        self.save = True
+                    if event.key == pygame.K_l:
+                        self.population[0].load_brain()
+                        self.reset()
+                        print("Loaded brain")
             self.collision_detection()
             if self.all_birds_dead():
                 self.next_generation()
@@ -714,7 +746,7 @@ class Game:
         x_pos = self.display_width - self.top_left_wall_spike.get_width()
 
         # Width of the spikes to hide the spikes after bounces
-        spike_width = self.top_left_wall_spike.get_width() * -1
+        spike_width = self.top_left_wall_spike.get_width()
 
         if not self.all_birds_dead():
             if self.first_alive_bird().x_speed > 0:
@@ -722,16 +754,15 @@ class Game:
                 self.top_right_wall_spike.set_spike(x_pos, top_y)
                 self.bottom_right_wall_spike.set_spike(x_pos, bottom_y)
                 # Set the position of the spikes birds are leaving from
-                self.top_left_wall_spike.set_spike(spike_width, top_y)
-                self.bottom_left_wall_spike.set_spike(spike_width, bottom_y)
+                self.top_left_wall_spike.set_spike(spike_width * -1, top_y)
+                self.bottom_left_wall_spike.set_spike(spike_width * -1, bottom_y)
             else:
                 # Set position of spikes birds are going towards
                 self.top_left_wall_spike.set_spike(0, top_y)
                 self.bottom_left_wall_spike.set_spike(0, bottom_y)
                 # Set the position of the spikes birds are leaving from
-                self.top_right_wall_spike.set_spike(x_pos + self.top_right_wall_spike.get_width(), top_y)
-                self.bottom_right_wall_spike.set_spike(x_pos + self.bottom_right_wall_spike.get_width(), bottom_y)
-
+                self.top_right_wall_spike.set_spike(x_pos + spike_width, top_y)
+                self.bottom_right_wall_spike.set_spike(x_pos + spike_width, bottom_y)
 
     def all_birds_dead(self):
         '''
@@ -745,11 +776,35 @@ class Game:
                 return False
         return True
 
+    def best_bird(self):
+        '''
+        Finds a decent bird and returns them.
+
+                Returns:
+                        best_bird (Bird): Bird with a decent fitness score
+        '''
+        # Pick a random number between 0 and 1
+        random_num = random.random()
+        index = 0
+        # Continue to subtract from that number based on the normalized fitness of birds
+        while random_num > 0:
+            random_num -= self.population[index].fitness
+            index += 1
+        index -= 1
+
+        # When the bird has a fitness that exceeds the random number return a clone
+        new_brain = self.population[index].brain.copy()
+        return Bird(new_brain)
+
     def next_generation(self):
         '''
         Prepares the next generation of birds.
         '''
         self.normalize_fitness()
+        if self.save:
+            self.pool_selection().print_brain()
+            self.save = False
+            print("Saved brain")
         self.reset()
         self.generate_new_population()
         self.generation += 1
@@ -764,6 +819,9 @@ class Game:
         for bird in self.population:
             new_bird = self.pool_selection()
             new_pop.append(new_bird)
+
+        # Copy the best bird from the previous group to ensure progress doesn't regress
+        new_pop[0] = self.best_bird()
 
         # Remove all of the previous birds from their groups
         for bird in self.population:
@@ -810,7 +868,7 @@ class Game:
             total_sum += bird.score
         for bird in self.population:
             bird.fitness = bird.score / total_sum
-    
+
     def first_alive_bird(self):
         '''
         Retrieves the first bird that is alive.
@@ -847,10 +905,9 @@ class Game:
         '''
         if bird.x_speed > 0:
             return self.right_side_wall.rect.x - bird.get_x_pos()
-        else:
-            distance = self.left_side_wall.rect.x + self.left_side_wall.get_width()
-            return bird.get_x_pos() - distance
-    
+        distance = self.left_side_wall.rect.x + self.left_side_wall.get_width()
+        return bird.get_x_pos() - distance
+
     def distance_to_top_spike(self, bird):
         '''
         Returns the distance from the given bird to the top spike.
@@ -873,7 +930,7 @@ class Game:
         '''
         bird_y = bird.rect.y + bird.get_height()
         return self.bottom_spike.rect.y - bird_y
-    
+
     def distance_to_top_wall_spike(self, bird):
         '''
         Returns the distance from the given bird to the top wall spike.
@@ -886,10 +943,9 @@ class Game:
         if bird.x_speed > 0:
             y_of_spike = self.top_right_wall_spike.rect.y + self.top_right_wall_spike.get_height()
             return bird.rect.y - y_of_spike
-        else:
-            y_of_spike = self.top_left_wall_spike.rect.y + self.top_left_wall_spike.get_height()
-            return bird.rect.y - y_of_spike
-    
+        y_of_spike = self.top_left_wall_spike.rect.y + self.top_left_wall_spike.get_height()
+        return bird.rect.y - y_of_spike
+
     def distance_to_bottom_wall_spike(self, bird):
         '''
         Returns the distance from the given bird to the bottom wall spike.
@@ -902,10 +958,9 @@ class Game:
         if bird.x_speed > 0:
             bird_y = bird.rect.y + bird.get_height()
             return self.bottom_right_wall_spike.rect.y - bird_y
-        else:
-            bird_y = bird.rect.y + bird.get_height()
-            return self.bottom_left_wall_spike.rect.y - bird_y
-    
+        bird_y = bird.rect.y + bird.get_height()
+        return self.bottom_left_wall_spike.rect.y - bird_y
+
     def birds_going_same_direction(self):
         '''
         Checks if all alive birds in the population are going the same direction.
@@ -932,12 +987,20 @@ class Game:
             elif bird.collide(self.spikes):
                 bird.alive = False
 
+    def update_high_score(self):
+        '''
+        Update the high score.
+        '''
+        if self.score > self.high_score:
+            self.high_score = self.score
+
     def update(self):
         '''
         Updates the main components in the game.
         '''
         self.calculate_action()
         self.all_sprites_list.update()
+        self.update_high_score()
 
     def draw(self):
         '''
@@ -953,6 +1016,12 @@ class Game:
         # Draw generation
         gen_text = self.font.render("Generation: " + str(self.generation), True, Game.BLACK)
         self.screen.blit(gen_text, (Game.display_width / 15, Game.display_height / 15))
+
+        # Draw high score
+        high_score_text = self.font.render("Session High Score: "
+            + str(self.high_score), True, Game.BLACK)
+        self.screen.blit(high_score_text, (Game.display_width / 15,
+            (Game.display_height / 15) + 30))
 
         # Draw sprites
         self.all_sprites_list.draw(self.screen)
